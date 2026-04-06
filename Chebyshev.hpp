@@ -925,7 +925,7 @@ public:
   //tol is the maximum error that the user will allow on the approximation
 
     //Start with Chebyshev series that approximates f closer than the desired tolerance
-    unsigned int N = c.degree + 1;
+    int N = c.degree + 1;
     if (N <= 2) return c;
 
     //Now we need to choose the degree to truncate to
@@ -935,15 +935,15 @@ public:
 
     //Lower limit is largest unacceptable degree
     //Upper limit is smallest acceptable degree
-    unsigned int upper_limit = N-2;
-    unsigned int lower_limit = N-2;
+    int upper_limit = N-2;
+    int lower_limit = N-2;
     Scalar upper_bound = 1e99;
     Scalar lower_bound = 0;
     Scalar error = c.error;
 
     while (lower_bound < tolerance){
       lower_limit--;
-      if (lower_limit == -1){Chebyshev::RCF_truncate(c, 0);}
+      if (lower_limit < 0){return c;}
       unsigned int n = N - lower_limit - 1;
       //For a lower bound, take a normalised test vector x and find x.dot(H*x) where H is the Hankel matrix
       //Taking x to be the first row of the Hankel matrix works very well
@@ -981,10 +981,13 @@ public:
   //Take the input function as the sum of an odd function and an even function, and find the best approximant for each simultaneously
     Chebyshev c = Chebyshev::fit_bounded(f, tolerance/Scalar(200), initial_n, 4);
 
+    //If the expansion is very short, this code breaks so we just exit early.
+    if (c.degree <= 2) return c;
+
     Chebyshev odd = Chebyshev(c.coeffs(seq(1,last,2)));
     Chebyshev even = Chebyshev(c.coeffs(seq(0,last,2)));
-    odd.error = c.error;
-    even.error = c.error;
+    odd.error = even.error = c.error;
+
     odd.trunc_to_error(tolerance/Scalar(100), 2);
     even.trunc_to_error(tolerance/Scalar(100), 2);
 
