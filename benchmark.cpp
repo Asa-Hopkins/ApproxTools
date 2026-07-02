@@ -13,9 +13,10 @@ int main() {
   const Scalar pi = std::acos(Scalar(-1));
   int n = 10;
   double scale = 1.0;
-  int remez_limit = 0;
+  int remez_limit = 8;
   double tolerance = 1e-9;
-  for (int j = 0; j < 13; j++){
+  int runs = 100;
+  for (int j = 0; j < 16; j++){
     int N = 4 + 4*j;
     n = (scale*12)/10 + 256;
 
@@ -30,7 +31,8 @@ int main() {
 
     Poly p3 = Poly::fit(f, n+1);
     Poly p0 = Poly::fit_bounded(f, tolerance);
-    Poly r0 = Poly::RCF_bounded(f, tolerance);
+    Poly r0 = Poly::sincos(scale, 1e-12);
+    Poly r1 = Poly::RCF_bounded_truncate(r0, tolerance);
 
     int max_n = p0.degree;
 
@@ -68,7 +70,7 @@ int main() {
       volatile Scalar guard = 0;
       auto t1 = clock::now();
 
-      Poly p = Poly::RCF_bounded(f, tolerance);
+      Poly p = Poly::RCF_bounded_truncate(r0, tolerance);
 
       auto t2 = clock::now();
       guard += p(i);
@@ -95,6 +97,16 @@ int main() {
       return std::chrono::duration<double>(t2 - t1).count();
     };
 
+    auto benchmark_Miller = [&](int i) {
+      //no optimising away
+      volatile Scalar guard = 0;
+      auto t1 = clock::now();
+      Poly p = Poly::BesselJ(scale);
+      auto t2 = clock::now();
+      guard += p(i);
+      return std::chrono::duration<double>(t2 - t1).count();
+    };
+
     // warm-up
     volatile Scalar sink = 0;
     sink += Poly::fit(f, max_n)(0.1);
@@ -102,13 +114,14 @@ int main() {
     sink += Poly::RCF(f, max_n, max_n + N)(0.1);
 
     double total = 0;
-    int runs = 100;
     for (int i = 0; i < runs; ++i) {total += benchmark_fit(i);}
     std::cout << "avg fit() time: " << total / runs << " seconds\n";
-
+    
+/*
     total = 0;
     for (int i = 0; i < runs; ++i) {total += benchmark_RCF(i);}
     std::cout << "avg RCF() time: " << total / runs << " seconds\n";
+*/
 
     total = 0;
     for (int i = 0; i < runs; ++i) {total += benchmark_fit2(i);}
@@ -116,11 +129,16 @@ int main() {
 
     total = 0;
     for (int i = 0; i < runs; ++i) {total += benchmark_RCF2(i);}
-    std::cout << "avg RCF_bounded() time: " << total / runs << " seconds\n";
+    std::cout << "avg RCF_bounded() time: " << total / runs << " seconds\n"; 
 
+    /*
     total = 0;
     for (int i = 0; i < runs; ++i) {total += benchmark_RCF3(i);}
-    std::cout << "avg RCF_odd_even() time: " << total / runs << " seconds\n";
+    std::cout << "avg RCF_odd_even() time: " << total / runs << " seconds\n"; */
+
+    total = 0;
+    for (int i = 0; i < runs; ++i) {total += benchmark_Miller(i);}
+    std::cout << "avg Miller time: " << total / runs << " seconds\n";
 
     if (j < remez_limit){
       total = 0;
@@ -135,8 +153,8 @@ int main() {
     std::cout << "x-axis scaled by:" << scale << "\n";
     std::cout << "Estimated error of Chebyshev: " << (double)p1.error << " with degree " << p1.degree << "\n";
     std::cout << "Estimated error of RCF: " << (double)p2.error << " with degree " << p2.degree << "\n";
-    std::cout << "Estimated error of bounded Chebyshev:" << (double)p0.error << " with degree " << p0.degree << "\n";
-    std::cout << "Estimated error of bounded RCF: " << (double)r0.error << " with degree " << r0.degree << "\n";
+    std::cout << "Estimated error of analytic Chebyshev:" << (double)r0.error << " with degree " << r0.degree << "\n";
+    std::cout << "Estimated error of bounded RCF: " << (double)r1.error << " with degree " << r1.degree << "\n";
 
     if (j < remez_limit){
       Poly p4 = Remez<Scalar>::SimpleRemez(f, max_n, max_n + N, w);
@@ -144,10 +162,10 @@ int main() {
     }
 
     std::cout << "RCF is " << (double)p1.error/(double)p2.error << "x more accurate\n";
-    std::cout << "Measured error of bounded RCF is " << (double)f(-1) - (double)r0(-1) << " " << (double)f(1) - (double)r0(1) << "\n\n\n";
+    std::cout << "Measured error of analytic Chebyshev is " << (double)f(-1) - (double)r0(-1) << " " << (double)f(1) - (double)r0(1) << "\n\n\n";
+    std::cout << "Measured error of bounded RCF is " << (double)f(-1) - (double)r1(-1) << " " << (double)f(1) - (double)r1(1) << "\n\n\n";
 
     scale *= 2;
-
     }
 
 
